@@ -1,9 +1,35 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"sync/atomic"
 )
+
+type apiConfig struct {
+	fileserverHits atomic.Int32
+}
+
+func (cfg *apiConfig) metricsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cfg.fileserverHits.Add(1)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (cfg *apiConfig) ServeMetrics(writer http.ResponseWriter, request *http.Request) {
+	_ = request
+	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprintf(writer, "Hits: %d", cfg.fileserverHits.Load())
+}
+
+func (cfg *apiConfig) ServeMetricsReset(writer http.ResponseWriter, request *http.Request) {
+	_ = request
+	cfg.fileserverHits = atomic.Int32{}
+	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprintln(writer, "Fileserver hits reset")
+}
 
 func ServeReady(writer http.ResponseWriter, request *http.Request) {
 	_ = request
@@ -15,11 +41,17 @@ func ServeReady(writer http.ResponseWriter, request *http.Request) {
 func main() {
 	const port = "8080"
 	const filePath = "."
+	apiCfg := &apiConfig{
+		fileserverHits: atomic.Int32{},
+	}
 	dir := http.Dir(filePath)
 
 	serveMux := http.NewServeMux()
-	serveMux.Handle("/app/", http.StripPrefix("/app", http.FileServer(dir)))
+	serveFile := http.StripPrefix("/app", http.FileServer(dir))
+	serveMux.Handle("/app/", apiCfg.metricsMiddleware(serveFile))
 	serveMux.HandleFunc("/healthz", ServeReady)
+	serveMux.HandleFunc("/metrics", apiCfg.ServeMetrics)
+	serveMux.HandleFunc("/reset", apiCfg.ServeMetricsReset)
 
 	server := &http.Server{
 		Handler: serveMux,
