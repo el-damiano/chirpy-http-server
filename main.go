@@ -21,21 +21,22 @@ func (cfg *apiConfig) metricsMiddleware(next http.Handler) http.Handler {
 func (cfg *apiConfig) ServeMetrics(writer http.ResponseWriter, request *http.Request) {
 	_ = request
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	writer.WriteHeader(http.StatusOK)
 	fmt.Fprintf(writer, "Hits: %d", cfg.fileserverHits.Load())
 }
 
 func (cfg *apiConfig) ServeMetricsReset(writer http.ResponseWriter, request *http.Request) {
 	_ = request
-	cfg.fileserverHits = atomic.Int32{}
-	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	cfg.fileserverHits.Store(0)
+	writer.WriteHeader(http.StatusOK)
 	fmt.Fprintln(writer, "Fileserver hits reset")
 }
 
 func ServeReady(writer http.ResponseWriter, request *http.Request) {
 	_ = request
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	writer.WriteHeader(200)
-	writer.Write([]byte("OK"))
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
 func main() {
