@@ -21,7 +21,13 @@ func (cfg *apiConfig) ServeMetrics(writer http.ResponseWriter, request *http.Req
 	_ = request
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(http.StatusOK)
-	fmt.Fprintf(writer, "Hits: %d", cfg.fileserverHits.Load())
+	writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(writer, `<html>
+  <body>
+    <h1>Welcome, Chirpy Admin</h1>
+    <p>Chirpy has been visited %d times!</p>
+  </body>
+</html>`, cfg.fileserverHits.Load())
 }
 
 func (cfg *apiConfig) ServeMetricsReset(writer http.ResponseWriter, request *http.Request) {
