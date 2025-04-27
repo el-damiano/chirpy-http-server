@@ -12,11 +12,11 @@ func main() {
 	dir := http.Dir(filePath)
 
 	serveMux := http.NewServeMux()
-	serveFile := http.StripPrefix("/app", http.FileServer(dir))
-	serveMux.Handle("/app/", apiCfg.metricsMiddleware(serveFile))
-	serveMux.HandleFunc("GET /api/healthz", ServeReady)
-	serveMux.HandleFunc("GET /admin/metrics", apiCfg.ServeMetrics)
-	serveMux.HandleFunc("POST /admin/reset", apiCfg.ServeMetricsReset)
+	fileHandler := http.StripPrefix("/app", http.FileServer(dir))
+	serveMux.Handle("/app/", apiCfg.metricsMiddleware(fileHandler))
+	serveMux.HandleFunc("GET /api/healthz", readyHandler)
+	serveMux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
+	serveMux.HandleFunc("POST /admin/reset", apiCfg.metricsResetHandler)
 
 	server := &http.Server{
 		Handler: serveMux,
