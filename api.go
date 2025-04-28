@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
 type Chirp struct {
 	Body string `json:"body"`
+}
+
+type ChirpClean struct {
+	CleanedBody string `json:"cleaned_body"`
 }
 
 func chirpValidateHandler(writer http.ResponseWriter, request *http.Request) {
@@ -25,25 +30,40 @@ func chirpValidateHandler(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	chirpValidated := len(chirp.Body) <= 140
-	type respValues struct {
-		Status bool `json:"valid"`
-	}
-	respBody := respValues{
-		Status: chirpValidated,
-	}
-
-	data, err := json.Marshal(respBody)
-	if err != nil {
-		log.Printf("Error encoding chirp validation status: %s\n", err)
-		writer.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
 	if !chirpValidated {
 		writer.WriteHeader(http.StatusBadRequest)
 	}
 
+	responseClean := chirpProfanityFilter(chirp)
+	data, err := json.Marshal(responseClean)
+	if err != nil {
+		log.Printf("Error cleaning up chirp: %s\n", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	writer.Write(data)
+}
+
+func chirpProfanityFilter(original Chirp) ChirpClean {
+	profanities := map[string]struct{}{
+		"kerfuffle": {},
+		"sharbert":  {},
+		"fornax":    {},
+	}
+
+	words := strings.Split(original.Body, " ")
+	for i, word := range words {
+		_, ok := profanities[strings.ToLower(word)]
+		if ok {
+			words[i] = "****"
+		} else {
+			words[i] = word
+		}
+	}
+
+	clean := strings.Join(words, " ")
+	return ChirpClean{CleanedBody: clean}
 }
 
 type apiConfig struct {
