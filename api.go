@@ -59,7 +59,6 @@ func (cfg *apiConfig) metricsMiddleware(next http.Handler) http.Handler {
 
 func (cfg *apiConfig) metricsHandler(writer http.ResponseWriter, request *http.Request) {
 	_ = request
-	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(http.StatusOK)
 	writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(writer, `<html>
