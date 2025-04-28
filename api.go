@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"sync/atomic"
+
+	"github.com/el-damiano/bootdev-http-server/internal/database"
 )
 
 type Chirp struct {
@@ -67,6 +69,7 @@ func chirpProfanityFilter(original Chirp) ChirpClean {
 }
 
 type apiConfig struct {
+	dbQueries      *database.Queries
 	fileserverHits atomic.Int32
 }
 
