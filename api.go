@@ -1,10 +1,50 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync/atomic"
 )
+
+type Chirp struct {
+	Body string `json:"body"`
+}
+
+func chirpValidateHandler(writer http.ResponseWriter, request *http.Request) {
+	decoder := json.NewDecoder(request.Body)
+	defer request.Body.Close()
+
+	chirp := Chirp{}
+	err := decoder.Decode(&chirp)
+	if err != nil {
+		log.Printf("Error decoding chirp: %s\n", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	chirpValidated := len(chirp.Body) <= 140
+	type respValues struct {
+		Status bool `json:"valid"`
+	}
+	respBody := respValues{
+		Status: chirpValidated,
+	}
+
+	data, err := json.Marshal(respBody)
+	if err != nil {
+		log.Printf("Error encoding chirp validation status: %s\n", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if !chirpValidated {
+		writer.WriteHeader(http.StatusBadRequest)
+	}
+
+	writer.Write(data)
+}
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
