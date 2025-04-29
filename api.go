@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/el-damiano/bootdev-http-server/internal/database"
+	"github.com/google/uuid"
 )
 
 type Chirp struct {
@@ -71,6 +74,50 @@ func chirpProfanityFilter(original Chirp) ChirpClean {
 type apiConfig struct {
 	dbQueries      *database.Queries
 	fileserverHits atomic.Int32
+}
+
+func (cfg *apiConfig) userCreateHandler(writer http.ResponseWriter, request *http.Request) {
+	decoder := json.NewDecoder(request.Body)
+
+	type ReqValues struct {
+		Email string `json:"email"`
+	}
+	reqValues := ReqValues{}
+	err := decoder.Decode(&reqValues)
+	if err != nil {
+		log.Printf("Error decoding request: %s\n", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	user, err := cfg.dbQueries.CreateUser(context.Background(), reqValues.Email)
+	if err != nil {
+		log.Printf("Error creating user: %s\n", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	userValues := struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UdpatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
+	}{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UdpatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+
+	data, err := json.Marshal(userValues)
+	if err != nil {
+		log.Printf("Error after creating user: %s", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	writer.WriteHeader(http.StatusCreated)
+	writer.Write(data)
 }
 
 func (cfg *apiConfig) metricsMiddleware(next http.Handler) http.Handler {
