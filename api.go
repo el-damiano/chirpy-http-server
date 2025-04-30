@@ -72,6 +72,7 @@ func chirpProfanityFilter(original Chirp) ChirpClean {
 }
 
 type apiConfig struct {
+	platform       string
 	dbQueries      *database.Queries
 	fileserverHits atomic.Int32
 }
@@ -141,9 +142,23 @@ func (cfg *apiConfig) metricsHandler(writer http.ResponseWriter, request *http.R
 
 func (cfg *apiConfig) metricsResetHandler(writer http.ResponseWriter, request *http.Request) {
 	_ = request
+	if cfg.platform != "dev" {
+		fmt.Println("dev plat")
+		writer.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	err := cfg.dbQueries.DeleteAllUsers(context.Background())
+	if err != nil {
+		log.Printf("Error deleting users: %s", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	cfg.fileserverHits.Store(0)
+	fmt.Fprintln(writer, "Fileserver hits reset and users deleted")
+
 	writer.WriteHeader(http.StatusOK)
-	fmt.Fprintln(writer, "Fileserver hits reset")
 }
 
 func readyHandler(writer http.ResponseWriter, request *http.Request) {
