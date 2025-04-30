@@ -156,9 +156,9 @@ func (cfg *apiConfig) metricsResetHandler(writer http.ResponseWriter, request *h
 	}
 
 	cfg.fileserverHits.Store(0)
+	writer.WriteHeader(http.StatusOK)
 	fmt.Fprintln(writer, "Fileserver hits reset and users deleted")
 
-	writer.WriteHeader(http.StatusOK)
 }
 
 func readyHandler(writer http.ResponseWriter, request *http.Request) {
