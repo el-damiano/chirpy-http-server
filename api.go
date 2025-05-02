@@ -14,15 +14,23 @@ import (
 	"github.com/google/uuid"
 )
 
+type apiConfig struct {
+	platform       string
+	dbQueries      *database.Queries
+	fileserverHits atomic.Int32
+}
+
 type Chirp struct {
-	Body string `json:"body"`
+	Body   string    `json:"body"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 type ChirpClean struct {
-	CleanedBody string `json:"cleaned_body"`
+	CleanedBody string    `json:"body"`
+	UserID      uuid.UUID `json:"user_id"`
 }
 
-func chirpValidateHandler(writer http.ResponseWriter, request *http.Request) {
+func (cfg *apiConfig) chirpCreateHandler(writer http.ResponseWriter, request *http.Request) {
 	decoder := json.NewDecoder(request.Body)
 	defer request.Body.Close()
 
@@ -39,14 +47,28 @@ func chirpValidateHandler(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusBadRequest)
 	}
 
-	responseClean := chirpProfanityFilter(chirp)
-	data, err := json.Marshal(responseClean)
+	chirpClean := chirpProfanityFilter(chirp)
+	data, err := json.Marshal(chirpClean)
 	if err != nil {
 		log.Printf("Error cleaning up chirp: %s\n", err)
 		writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	chirpParams := database.CreateChirpParams{
+		Body:   chirpClean.CleanedBody,
+		UserID: chirpClean.UserID,
+	}
+
+	chirpDB, err := cfg.dbQueries.CreateChirp(context.Background(), chirpParams)
+	_ = chirpDB
+	if err != nil {
+		log.Printf("Error saving chirp in database: %s\n", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	writer.WriteHeader(http.StatusCreated)
 	writer.Write(data)
 }
 
@@ -68,13 +90,7 @@ func chirpProfanityFilter(original Chirp) ChirpClean {
 	}
 
 	clean := strings.Join(words, " ")
-	return ChirpClean{CleanedBody: clean}
-}
-
-type apiConfig struct {
-	platform       string
-	dbQueries      *database.Queries
-	fileserverHits atomic.Int32
+	return ChirpClean{CleanedBody: clean, UserID: original.UserID}
 }
 
 func (cfg *apiConfig) userCreateHandler(writer http.ResponseWriter, request *http.Request) {
