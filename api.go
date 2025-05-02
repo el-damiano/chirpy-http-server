@@ -21,8 +21,10 @@ type apiConfig struct {
 }
 
 type Chirp struct {
-	Body   string    `json:"body"`
-	UserID uuid.UUID `json:"user_id"`
+	Body      string    `json:"body"`
+	UserID    uuid.UUID `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (cfg *apiConfig) chirpCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +65,40 @@ func (cfg *apiConfig) chirpCreateHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusCreated)
+	_, err = w.Write(data)
+	if err != nil {
+		log.Printf("Error writing to the HTTP response: %s\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
+	_ = r
+	chirps, err := cfg.dbQueries.GetAllChirps(context.Background())
+	if err != nil {
+		log.Printf("Error retrieving all the chirps: %s\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var chirpsResponse []Chirp
+	for _, chirp := range chirps {
+		chirpy := Chirp{
+			Body:   chirp.Body,
+			UserID: chirp.UserID,
+		}
+		chirpsResponse = append(chirpsResponse, chirpy)
+	}
+
+	data, err := json.Marshal(chirpsResponse)
+	if err != nil {
+		log.Printf("Error encoding the retrieved chirps: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(data)
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)

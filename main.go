@@ -37,6 +37,7 @@ func main() {
 	serveMux.Handle("/app/", apiCfg.metricsMiddleware(fileHandler))
 	serveMux.HandleFunc("GET /api/healthz", readyHandler)
 	serveMux.HandleFunc("POST /api/chirps", apiCfg.chirpCreateHandler)
+	serveMux.HandleFunc("GET /api/chirps", apiCfg.chirpsHandler)
 	serveMux.HandleFunc("POST /api/users", apiCfg.userCreateHandler)
 	serveMux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
 	serveMux.HandleFunc("POST /admin/reset", apiCfg.metricsResetHandler)
