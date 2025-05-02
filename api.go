@@ -25,11 +25,6 @@ type Chirp struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-type ChirpClean struct {
-	CleanedBody string    `json:"body"`
-	UserID      uuid.UUID `json:"user_id"`
-}
-
 func (cfg *apiConfig) chirpCreateHandler(writer http.ResponseWriter, request *http.Request) {
 	decoder := json.NewDecoder(request.Body)
 	defer request.Body.Close()
@@ -56,12 +51,11 @@ func (cfg *apiConfig) chirpCreateHandler(writer http.ResponseWriter, request *ht
 	}
 
 	chirpParams := database.CreateChirpParams{
-		Body:   chirpClean.CleanedBody,
+		Body:   chirpClean.Body,
 		UserID: chirpClean.UserID,
 	}
 
-	chirpDB, err := cfg.dbQueries.CreateChirp(context.Background(), chirpParams)
-	_ = chirpDB
+	_, err = cfg.dbQueries.CreateChirp(context.Background(), chirpParams)
 	if err != nil {
 		log.Printf("Error saving chirp in database: %s\n", err)
 		writer.WriteHeader(http.StatusInternalServerError)
@@ -69,10 +63,15 @@ func (cfg *apiConfig) chirpCreateHandler(writer http.ResponseWriter, request *ht
 	}
 
 	writer.WriteHeader(http.StatusCreated)
-	writer.Write(data)
+	_, err = writer.Write(data)
+	if err != nil {
+		log.Printf("Error writing to the HTTP response: %s\n", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
 
-func chirpProfanityFilter(original Chirp) ChirpClean {
+func chirpProfanityFilter(original Chirp) Chirp {
 	profanities := map[string]struct{}{
 		"kerfuffle": {},
 		"sharbert":  {},
@@ -90,7 +89,7 @@ func chirpProfanityFilter(original Chirp) ChirpClean {
 	}
 
 	clean := strings.Join(words, " ")
-	return ChirpClean{CleanedBody: clean, UserID: original.UserID}
+	return Chirp{Body: clean, UserID: original.UserID}
 }
 
 func (cfg *apiConfig) userCreateHandler(writer http.ResponseWriter, request *http.Request) {
@@ -134,7 +133,12 @@ func (cfg *apiConfig) userCreateHandler(writer http.ResponseWriter, request *htt
 	}
 
 	writer.WriteHeader(http.StatusCreated)
-	writer.Write(data)
+	_, err = writer.Write(data)
+	if err != nil {
+		log.Printf("Error writing to the HTTP response: %s\n", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
 
 func (cfg *apiConfig) metricsMiddleware(next http.Handler) http.Handler {
@@ -181,5 +185,10 @@ func readyHandler(writer http.ResponseWriter, request *http.Request) {
 	_ = request
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(http.StatusOK)
-	writer.Write([]byte(http.StatusText(http.StatusOK)))
+	_, err := writer.Write([]byte(http.StatusText(http.StatusOK)))
+	if err != nil {
+		log.Printf("Error writing to the HTTP response: %s\n", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }

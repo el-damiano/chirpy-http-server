@@ -12,7 +12,11 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading env files")
+		return
+	}
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
 	db, err := sql.Open("postgres", dbURL)
