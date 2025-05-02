@@ -21,6 +21,7 @@ type apiConfig struct {
 }
 
 type Chirp struct {
+	ID        uuid.UUID `json:"id"`
 	Body      string    `json:"body"`
 	UserID    uuid.UUID `json:"user_id"`
 	CreatedAt time.Time `json:"created_at"`
@@ -45,21 +46,29 @@ func (cfg *apiConfig) chirpCreateHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	chirpClean := chirpProfanityFilter(chirp)
-	data, err := json.Marshal(chirpClean)
-	if err != nil {
-		log.Printf("Error cleaning up chirp: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
 	chirpParams := database.CreateChirpParams{
 		Body:   chirpClean.Body,
 		UserID: chirpClean.UserID,
 	}
 
-	_, err = cfg.dbQueries.CreateChirp(context.Background(), chirpParams)
+	chirpDB, err := cfg.dbQueries.CreateChirp(context.Background(), chirpParams)
 	if err != nil {
 		log.Printf("Error saving chirp in database: %s\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	chirpValues := Chirp{
+		ID:        chirpDB.ID,
+		Body:      chirpDB.Body,
+		UserID:    chirpDB.UserID,
+		CreatedAt: chirpDB.CreatedAt,
+		UpdatedAt: chirpDB.UpdatedAt,
+	}
+
+	data, err := json.Marshal(chirpValues)
+	if err != nil {
+		log.Printf("Error cleaning up chirp: %s\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -74,7 +83,12 @@ func (cfg *apiConfig) chirpCreateHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
-	_ = r
+	id := r.PathValue("chirpID")
+	if id != "" {
+		cfg.chirpWriteByID(w, r, id)
+		return
+	}
+
 	chirps, err := cfg.dbQueries.GetAllChirps(context.Background())
 	if err != nil {
 		log.Printf("Error retrieving all the chirps: %s\n", err)
@@ -85,8 +99,11 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 	var chirpsResponse []Chirp
 	for _, chirp := range chirps {
 		chirpy := Chirp{
-			Body:   chirp.Body,
-			UserID: chirp.UserID,
+			ID:        chirp.ID,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
 		}
 		chirpsResponse = append(chirpsResponse, chirpy)
 	}
@@ -94,6 +111,45 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := json.Marshal(chirpsResponse)
 	if err != nil {
 		log.Printf("Error encoding the retrieved chirps: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(data)
+	if err != nil {
+		log.Printf("Error writing to the HTTP response: %s\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (cfg *apiConfig) chirpWriteByID(w http.ResponseWriter, r *http.Request, id string) {
+	_ = r
+
+	uuid, err := uuid.Parse(id)
+	if err != nil {
+		log.Printf("Error retrieving the chirp of ID %s: %s\n", id, err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	chirpDB, err := cfg.dbQueries.GetChirpByID(context.Background(), uuid)
+	if err != nil {
+		log.Printf("Error retrieving the chirp of ID %s: %s\n", id, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	chirp := Chirp{
+		ID:        chirpDB.ID,
+		Body:      chirpDB.Body,
+		UpdatedAt: chirpDB.UpdatedAt,
+		CreatedAt: chirpDB.CreatedAt,
+		UserID:    chirpDB.UserID,
+	}
+	data, err := json.Marshal(chirp)
+	if err != nil {
+		log.Printf("Error encoding the retrieved chirp: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -125,7 +181,13 @@ func chirpProfanityFilter(original Chirp) Chirp {
 	}
 
 	clean := strings.Join(words, " ")
-	return Chirp{Body: clean, UserID: original.UserID}
+	return Chirp{
+		Body:      clean,
+		UserID:    original.UserID,
+		ID:        original.ID,
+		CreatedAt: original.CreatedAt,
+		UpdatedAt: original.UpdatedAt,
+	}
 }
 
 func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) {
