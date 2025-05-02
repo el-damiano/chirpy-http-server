@@ -25,28 +25,28 @@ type Chirp struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (cfg *apiConfig) chirpCreateHandler(writer http.ResponseWriter, request *http.Request) {
-	decoder := json.NewDecoder(request.Body)
-	defer request.Body.Close()
+func (cfg *apiConfig) chirpCreateHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
 
 	chirp := Chirp{}
 	err := decoder.Decode(&chirp)
 	if err != nil {
 		log.Printf("Error decoding chirp: %s\n", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	chirpValidated := len(chirp.Body) <= 140
 	if !chirpValidated {
-		writer.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 	}
 
 	chirpClean := chirpProfanityFilter(chirp)
 	data, err := json.Marshal(chirpClean)
 	if err != nil {
 		log.Printf("Error cleaning up chirp: %s\n", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -58,15 +58,15 @@ func (cfg *apiConfig) chirpCreateHandler(writer http.ResponseWriter, request *ht
 	_, err = cfg.dbQueries.CreateChirp(context.Background(), chirpParams)
 	if err != nil {
 		log.Printf("Error saving chirp in database: %s\n", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	writer.WriteHeader(http.StatusCreated)
-	_, err = writer.Write(data)
+	w.WriteHeader(http.StatusCreated)
+	_, err = w.Write(data)
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -92,8 +92,8 @@ func chirpProfanityFilter(original Chirp) Chirp {
 	return Chirp{Body: clean, UserID: original.UserID}
 }
 
-func (cfg *apiConfig) userCreateHandler(writer http.ResponseWriter, request *http.Request) {
-	decoder := json.NewDecoder(request.Body)
+func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
 
 	type ReqValues struct {
 		Email string `json:"email"`
@@ -102,14 +102,14 @@ func (cfg *apiConfig) userCreateHandler(writer http.ResponseWriter, request *htt
 	err := decoder.Decode(&reqValues)
 	if err != nil {
 		log.Printf("Error decoding request: %s\n", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	user, err := cfg.dbQueries.CreateUser(context.Background(), reqValues.Email)
 	if err != nil {
 		log.Printf("Error creating user: %s\n", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -128,15 +128,15 @@ func (cfg *apiConfig) userCreateHandler(writer http.ResponseWriter, request *htt
 	data, err := json.Marshal(userValues)
 	if err != nil {
 		log.Printf("Error after creating user: %s", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	writer.WriteHeader(http.StatusCreated)
-	_, err = writer.Write(data)
+	w.WriteHeader(http.StatusCreated)
+	_, err = w.Write(data)
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -148,11 +148,11 @@ func (cfg *apiConfig) metricsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (cfg *apiConfig) metricsHandler(writer http.ResponseWriter, request *http.Request) {
-	_ = request
-	writer.WriteHeader(http.StatusOK)
-	writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(writer, `<html>
+func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
+	_ = r
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `<html>
   <body>
     <h1>Welcome, Chirpy Admin</h1>
     <p>Chirpy has been visited %d times!</p>
@@ -160,35 +160,35 @@ func (cfg *apiConfig) metricsHandler(writer http.ResponseWriter, request *http.R
 </html>`, cfg.fileserverHits.Load())
 }
 
-func (cfg *apiConfig) metricsResetHandler(writer http.ResponseWriter, request *http.Request) {
-	_ = request
+func (cfg *apiConfig) metricsResetHandler(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	if cfg.platform != "dev" {
 		fmt.Println("dev plat")
-		writer.WriteHeader(http.StatusForbidden)
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
 	err := cfg.dbQueries.DeleteAllUsers(context.Background())
 	if err != nil {
 		log.Printf("Error deleting users: %s", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	cfg.fileserverHits.Store(0)
-	writer.WriteHeader(http.StatusOK)
-	fmt.Fprintln(writer, "Fileserver hits reset and users deleted")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "Fileserver hits reset and users deleted")
 
 }
 
-func readyHandler(writer http.ResponseWriter, request *http.Request) {
-	_ = request
-	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	writer.WriteHeader(http.StatusOK)
-	_, err := writer.Write([]byte(http.StatusText(http.StatusOK)))
+func readyHandler(w http.ResponseWriter, r *http.Request) {
+	_ = r
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte(http.StatusText(http.StatusOK)))
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)
-		writer.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
