@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/el-damiano/bootdev-http-server/internal/auth"
 	"github.com/el-damiano/bootdev-http-server/internal/database"
 	"github.com/google/uuid"
 )
@@ -194,8 +195,10 @@ func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) 
 	decoder := json.NewDecoder(r.Body)
 
 	type ReqValues struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
+
 	reqValues := ReqValues{}
 	err := decoder.Decode(&reqValues)
 	if err != nil {
@@ -204,7 +207,26 @@ func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	user, err := cfg.dbQueries.CreateUser(context.Background(), reqValues.Email)
+	if reqValues.Email == "" || reqValues.Password == "" {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, "Error: 'email' and 'password' are required")
+		return
+	}
+
+	passwordHashed, err := auth.HashPassword(reqValues.Password)
+	if err != nil {
+		log.Printf("Error hashing password: %s\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	params := database.CreateUserParams{
+		Email:          reqValues.Email,
+		HashedPassword: passwordHashed,
+	}
+
+	user, err := cfg.dbQueries.CreateUser(context.Background(), params)
 	if err != nil {
 		log.Printf("Error creating user: %s\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -231,6 +253,63 @@ func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusCreated)
+	_, err = w.Write(data)
+	if err != nil {
+		log.Printf("Error writing to the HTTP response: %s\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+}
+
+func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+
+	type ReqValues struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	reqValues := ReqValues{}
+	err := decoder.Decode(&reqValues)
+	if err != nil {
+		log.Printf("Error decoding request: %s\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	user, err := cfg.dbQueries.GetUserByEmail(context.Background(), reqValues.Email)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	err = auth.CheckPasswordHash(user.HashedPassword, reqValues.Password)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	userValues := struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UdpatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
+	}{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UdpatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+
+	data, err := json.Marshal(userValues)
+	if err != nil {
+		log.Printf("Error after user login: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(data)
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)
