@@ -120,7 +120,6 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write(data)
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -159,7 +158,6 @@ func (cfg *apiConfig) chirpWriteByID(w http.ResponseWriter, r *http.Request, id 
 	_, err = w.Write(data)
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -256,7 +254,6 @@ func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) 
 	_, err = w.Write(data)
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -313,7 +310,6 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write(data)
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -365,7 +361,6 @@ func readyHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := w.Write([]byte(http.StatusText(http.StatusOK)))
 	if err != nil {
 		log.Printf("Error writing to the HTTP response: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
