@@ -14,6 +14,7 @@ API.
     - [Fileserver](#fileserver)
     - [Get ready status](#get-ready-status)
     - [Create user](#create-user)
+    - [Login user](#login-user)
     - [Create post](#create-post)
     - [Retrieve all posts](#retrieve-all-posts)
     - [Retrieve post of specific UUID](#retrieve-post-of-specific-uuid)
@@ -148,13 +149,21 @@ Returns `200 OK` if server is ready.
 
 `POST` `/api/users`
 
-Creates a user. Requires a JSON payload with an `email` key. Returns JSON with
-`id`, `created_at`, `updated_at` and `email`.
+Creates a user. Requires a JSON payload with an `email` and `password` values.
+Returns JSON with `id`, `created_at`, `updated_at` and `email`.
 
 Example usage:
 
 ```bash
-curl -X POST 'localhost:8080/api/users' -H 'Content-Type: application/json' -d '{"email": "john.pork@example.com"}'
+curl -X POST 'localhost:8080/api/users' -H 'Content-Type: application/json' -d '{"email": "john.pork@example.com", "password": "superidoldexiaorong"}'
+```
+
+### Login user
+
+`POST` `/api/login`
+
+```bash
+curl -X POST 'localhost:8080/api/login' -H 'Content-Type: application/json' -d '{"email": "john.pork@example.com", "password": "superidoldexiaorong"}'
 ```
 
 ### Create post
