@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -31,56 +32,36 @@ type Chirp struct {
 
 func (cfg *apiConfig) chirpCreateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	defer r.Body.Close()
-
 	chirp := Chirp{}
 	err := decoder.Decode(&chirp)
 	if err != nil {
-		log.Printf("Error decoding chirp: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Decoding chirp failed", err)
 		return
 	}
 
-	chirpValidated := len(chirp.Body) <= 140
-	if !chirpValidated {
-		w.WriteHeader(http.StatusBadRequest)
+	chirpClean, err := chirpValidate(chirp.Body)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error(), err)
 	}
 
-	chirpClean := chirpProfanityFilter(chirp)
 	chirpParams := database.CreateChirpParams{
-		Body:   chirpClean.Body,
-		UserID: chirpClean.UserID,
+		Body:   chirpClean,
+		UserID: chirp.UserID,
 	}
 
 	chirpDB, err := cfg.dbQueries.CreateChirp(context.Background(), chirpParams)
 	if err != nil {
-		log.Printf("Error saving chirp in database: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Saving chirp failed", err)
 		return
 	}
 
-	chirpValues := Chirp{
+	respondWithJSON(w, http.StatusCreated, Chirp{
 		ID:        chirpDB.ID,
 		Body:      chirpDB.Body,
 		UserID:    chirpDB.UserID,
 		CreatedAt: chirpDB.CreatedAt,
 		UpdatedAt: chirpDB.UpdatedAt,
-	}
-
-	data, err := json.Marshal(chirpValues)
-	if err != nil {
-		log.Printf("Error cleaning up chirp: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	_, err = w.Write(data)
-	if err != nil {
-		log.Printf("Error writing to the HTTP response: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	})
 }
 
 func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,8 +73,7 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 
 	chirps, err := cfg.dbQueries.GetAllChirps(context.Background())
 	if err != nil {
-		log.Printf("Error retrieving all the chirps: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Error retrieving all the chirps", err)
 		return
 	}
 
@@ -109,19 +89,7 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 		chirpsResponse = append(chirpsResponse, chirpy)
 	}
 
-	data, err := json.Marshal(chirpsResponse)
-	if err != nil {
-		log.Printf("Error encoding the retrieved chirps: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(data)
-	if err != nil {
-		log.Printf("Error writing to the HTTP response: %s\n", err)
-		return
-	}
+	respondWithJSON(w, http.StatusOK, chirpsResponse)
 }
 
 func (cfg *apiConfig) chirpWriteByID(w http.ResponseWriter, r *http.Request, id string) {
@@ -129,47 +97,37 @@ func (cfg *apiConfig) chirpWriteByID(w http.ResponseWriter, r *http.Request, id 
 
 	uuid, err := uuid.Parse(id)
 	if err != nil {
-		log.Printf("Error retrieving the chirp of ID %s: %s\n", id, err)
-		w.WriteHeader(http.StatusNotFound)
+		respondWithError(w, http.StatusNotFound, "Getting chirp failed", err)
 		return
 	}
 	chirpDB, err := cfg.dbQueries.GetChirpByID(context.Background(), uuid)
 	if err != nil {
-		log.Printf("Error retrieving the chirp of ID %s: %s\n", id, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Getting chirp failed", err)
 		return
 	}
 
-	chirp := Chirp{
+	respondWithJSON(w, http.StatusOK, Chirp{
 		ID:        chirpDB.ID,
 		Body:      chirpDB.Body,
 		UpdatedAt: chirpDB.UpdatedAt,
 		CreatedAt: chirpDB.CreatedAt,
 		UserID:    chirpDB.UserID,
-	}
-	data, err := json.Marshal(chirp)
-	if err != nil {
-		log.Printf("Error encoding the retrieved chirp: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(data)
-	if err != nil {
-		log.Printf("Error writing to the HTTP response: %s\n", err)
-		return
-	}
+	})
 }
 
-func chirpProfanityFilter(original Chirp) Chirp {
+func chirpValidate(bodyOriginal string) (string, error) {
+	const chirpLenMax = 140
+	if len(bodyOriginal) > chirpLenMax {
+		return "", errors.New("Chirp is too long")
+	}
+
 	profanities := map[string]struct{}{
 		"kerfuffle": {},
 		"sharbert":  {},
 		"fornax":    {},
 	}
 
-	words := strings.Split(original.Body, " ")
+	words := strings.Split(bodyOriginal, " ")
 	for i, word := range words {
 		_, ok := profanities[strings.ToLower(word)]
 		if ok {
@@ -179,14 +137,16 @@ func chirpProfanityFilter(original Chirp) Chirp {
 		}
 	}
 
-	clean := strings.Join(words, " ")
-	return Chirp{
-		Body:      clean,
-		UserID:    original.UserID,
-		ID:        original.ID,
-		CreatedAt: original.CreatedAt,
-		UpdatedAt: original.UpdatedAt,
-	}
+	bodyClean := strings.Join(words, " ")
+	return bodyClean, nil
+}
+
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UdpatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+	Password  string    `json:"-"`
 }
 
 func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -200,22 +160,22 @@ func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) 
 	reqValues := ReqValues{}
 	err := decoder.Decode(&reqValues)
 	if err != nil {
-		log.Printf("Error decoding request: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request", err)
 		return
 	}
 
 	if reqValues.Email == "" || reqValues.Password == "" {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, "Error: 'email' and 'password' are required")
+		respondWithError(
+			w,
+			http.StatusUnprocessableEntity,
+			"'email' and 'password' are required",
+			errors.New("User did not provide emmail and password"))
 		return
 	}
 
 	passwordHashed, err := auth.HashPassword(reqValues.Password)
 	if err != nil {
-		log.Printf("Error hashing password: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Error hashing password", err)
 		return
 	}
 
@@ -226,37 +186,16 @@ func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) 
 
 	user, err := cfg.dbQueries.CreateUser(context.Background(), params)
 	if err != nil {
-		log.Printf("Error creating user: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Error creating user", err)
 		return
 	}
 
-	userValues := struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UdpatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
-	}{
+	respondWithJSON(w, http.StatusCreated, User{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt,
 		UdpatedAt: user.UpdatedAt,
 		Email:     user.Email,
-	}
-
-	data, err := json.Marshal(userValues)
-	if err != nil {
-		log.Printf("Error after creating user: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	_, err = w.Write(data)
-	if err != nil {
-		log.Printf("Error writing to the HTTP response: %s\n", err)
-		return
-	}
-
+	})
 }
 
 func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -270,48 +209,28 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	reqValues := ReqValues{}
 	err := decoder.Decode(&reqValues)
 	if err != nil {
-		log.Printf("Error decoding request: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request", err)
 		return
 	}
 
 	user, err := cfg.dbQueries.GetUserByEmail(context.Background(), reqValues.Email)
 	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
 		return
 	}
 
 	err = auth.CheckPasswordHash(user.HashedPassword, reqValues.Password)
 	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
 		return
 	}
 
-	userValues := struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UdpatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
-	}{
+	respondWithJSON(w, http.StatusOK, User{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt,
 		UdpatedAt: user.UpdatedAt,
 		Email:     user.Email,
-	}
-
-	data, err := json.Marshal(userValues)
-	if err != nil {
-		log.Printf("Error after user login: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(data)
-	if err != nil {
-		log.Printf("Error writing to the HTTP response: %s\n", err)
-		return
-	}
+	})
 }
 
 func (cfg *apiConfig) metricsMiddleware(next http.Handler) http.Handler {
