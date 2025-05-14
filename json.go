@@ -1,4 +1,3 @@
-// TODO: code deduplication
 package main
 
 import (
