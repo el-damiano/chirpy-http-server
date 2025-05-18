@@ -10,55 +10,60 @@ import (
 )
 
 func TestHash(t *testing.T) {
+	const password1 = "one of the passwords of all time fr fr"
+	const password2 = "Two Time by crymelt it's a really good animation on youtube"
+
+	hash1, err := HashPassword(password1)
+	if err != nil {
+		t.Errorf("Error during password hashing: %s", err)
+	}
+
+	hash2, err := HashPassword(password2)
+	if err != nil {
+		t.Errorf("Error during password hashing: %s", err)
+	}
+
 	cases := map[string]struct {
-		input    string
-		expected string
+		password string
+		hash     string
+		wantErr  bool
 	}{
-		"empty string": {
-			input:    "",
-			expected: "",
+		"correct password": {
+			password: password1,
+			hash:     hash1,
+			wantErr:  false,
 		},
-		"password: foo": {
-			input:    "foo",
-			expected: "foo",
+		"incorrect password": {
+			password: "woops",
+			hash:     hash1,
+			wantErr:  true,
 		},
-		"password: super strong password": {
-			input:    "one of the passwords of all time fr fr",
-			expected: "one of the passwords of all time fr fr",
+		"password doesn't match different hash": {
+			password: password1,
+			hash:     hash2,
+			wantErr:  true,
+		},
+		"empty password": {
+			password: "",
+			hash:     hash1,
+			wantErr:  true,
+		},
+		"invalid hash": {
+			password: password1,
+			hash:     "wooOOOOOooooo00000000000oo",
+			wantErr:  true,
 		},
 	}
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test case %v", i), func(t *testing.T) {
-
-			actual, err := HashPassword(c.input)
-			if err != nil {
-				t.Errorf("Error during password hashing: %s", err)
-			}
-
-			err = CheckPasswordHash(actual, c.expected)
-			if err != nil {
+			err = CheckPasswordHash(c.password, c.hash)
+			if (err != nil) != c.wantErr {
 				t.Errorf("Error during password checking: %s", err)
 			}
 
 		})
 	}
-}
-
-func TestHashWrong(t *testing.T) {
-	passwordSet := "foo"
-	passwordWrong := "bar"
-
-	passwordHashed, err := HashPassword(passwordSet)
-	if err != nil {
-		t.Errorf("Error during password hashing: %s", err)
-	}
-
-	err = CheckPasswordHash(passwordHashed, passwordWrong)
-	if err == nil {
-		t.Errorf("Error during password checking: %s. Expected wrong password.", err)
-	}
-
 }
 
 func TestJWT(t *testing.T) {
