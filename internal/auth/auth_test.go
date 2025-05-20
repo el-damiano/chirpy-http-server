@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -127,6 +128,63 @@ func TestJWT(t *testing.T) {
 			}
 			if gotUserID != c.expectedID {
 				t.Errorf("ValidateJWT() gotUserID = %v, want %v", gotUserID, c.expectedID)
+			}
+		})
+	}
+}
+
+func TestBearerToken(t *testing.T) {
+	cases := map[string]struct {
+		header       http.Header
+		wantedBearer string
+		wantErr      bool
+	}{
+		"valid bearer token": {
+			header: http.Header{
+				"Authorization": []string{"Bearer bearing-so-hard-rn"},
+			},
+			wantedBearer: "bearing-so-hard-rn",
+			wantErr:      false,
+		},
+		"too many spaces": {
+			header: http.Header{
+				"Authorization": []string{"Bearer     bear"},
+			},
+			wantedBearer: "bear",
+			wantErr:      false,
+		},
+		"no bearer token": {
+			header: http.Header{
+				"Authorization": []string{"No bears"},
+			},
+			wantedBearer: "",
+			wantErr:      true,
+		},
+		"no authorization header": {
+			header:       http.Header{},
+			wantedBearer: "",
+			wantErr:      true,
+		},
+		"too many separate words": {
+			header: http.Header{
+				"Authorization": []string{"Bearer i cant bear this anymore"},
+			},
+			wantedBearer: "",
+			wantErr:      true,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("Test case %v", i), func(t *testing.T) {
+			gotBearer, err := BearerToken(c.header)
+			if (err != nil) != c.wantErr {
+				t.Errorf("wantErr %v. Bearer token error = %v", c.wantErr, err)
+				t.Fail()
+			}
+
+			if gotBearer != c.wantedBearer {
+				t.Errorf("Bearer token gotBearer = %v, want %v", gotBearer, c.wantedBearer)
+				t.Fail()
 			}
 		})
 	}

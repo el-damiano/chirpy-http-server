@@ -18,6 +18,7 @@ func main() {
 		return
 	}
 	dbURL := os.Getenv("DB_URL")
+	tokenSecret := os.Getenv("SECRET")
 	platform := os.Getenv("PLATFORM")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -27,8 +28,9 @@ func main() {
 	const port = "8080"
 	const filePath = "."
 	apiCfg := &apiConfig{
-		dbQueries: database.New(db),
-		platform:  platform,
+		dbQueries:   database.New(db),
+		platform:    platform,
+		tokenSecret: tokenSecret,
 	}
 	dir := http.Dir(filePath)
 

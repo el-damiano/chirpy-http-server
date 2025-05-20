@@ -162,6 +162,12 @@ curl -X POST 'localhost:8080/api/users' -H 'Content-Type: application/json' -d '
 
 `POST` `/api/login`
 
+Logins user. Requires a JSON payload with `email` and `password`. Returns JSON
+with `id`, `created_at`, `updated_at`, `email`, `token`.
+
+`token` acts as your secret identifier when making requests to the API, so
+don't lose or share it.
+
 ```bash
 curl -X POST 'localhost:8080/api/login' -H 'Content-Type: application/json' -d '{"email": "john.pork@example.com", "password": "superidoldexiaorong"}'
 ```
@@ -170,12 +176,12 @@ curl -X POST 'localhost:8080/api/login' -H 'Content-Type: application/json' -d '
 
 `POST` `/api/chirps`
 
-Creates a post. Requires a JSON payload with a `body` and `user_id` keys.
-Returns JSON with `id`, `body`, `user_id`, `created_at`, `updated_at` and
-`email`.
+Creates a post. Requires a JSON payload with a `body` key and `Authorization`
+header with a Bearer token. Returns JSON with `id`, `body`, `user_id`,
+`created_at`, `updated_at` and `email`.
 
 ```bash
-curl -X POST 'localhost:8080/api/chirps' -H 'Content-Type: application/json' -d '{"body": "hello I am John Pork", "user_id": "38257b8b-7299-4baf-8824-8c40328f1023"}'
+curl -X POST 'localhost:8080/api/chirps' -H 'Content-Type: application/json' -H 'Authorization: Bearer your-base64-token-here' -d '{"body": "hello I am John Pork"}'
 ```
 
 ### Retrieve all posts

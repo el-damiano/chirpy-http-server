@@ -3,6 +3,8 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -68,4 +70,21 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	} else {
 		return uuid.UUID{}, errors.New("unknown claim type, cannot proceed")
 	}
+}
+
+func BearerToken(headers http.Header) (string, error) {
+	headerAuth, ok := headers["Authorization"]
+	if !ok {
+		return "", errors.New("No authorization header found")
+	}
+
+	headerClean := strings.Fields(headerAuth[0])
+	if len(headerClean) != 2 {
+		return "", fmt.Errorf("Error, too many fields: got %d, want 2. Expected format: Bearer <token>", len(headerClean))
+	}
+	if headerClean[0] != "Bearer" {
+		return "", errors.New("No bearer token found")
+	}
+
+	return headerClean[1], nil
 }

@@ -18,6 +18,7 @@ import (
 
 type apiConfig struct {
 	platform       string
+	tokenSecret    string
 	dbQueries      *database.Queries
 	fileserverHits atomic.Int32
 }
@@ -39,6 +40,18 @@ func (cfg *apiConfig) chirpCreateHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	tokenBearer, err := auth.BearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Authorization failed: %v", err), err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(tokenBearer, cfg.tokenSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Authorization failed: invalid/expired JWT", err)
+		return
+	}
+
 	chirpClean, err := chirpValidate(chirp.Body)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error(), err)
@@ -46,7 +59,7 @@ func (cfg *apiConfig) chirpCreateHandler(w http.ResponseWriter, r *http.Request)
 
 	chirpParams := database.CreateChirpParams{
 		Body:   chirpClean,
-		UserID: chirp.UserID,
+		UserID: userID,
 	}
 
 	chirpDB, err := cfg.dbQueries.CreateChirp(context.Background(), chirpParams)
@@ -147,6 +160,7 @@ type User struct {
 	UdpatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
 	Password  string    `json:"-"`
+	Token     string    `json:"token"`
 }
 
 func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -202,8 +216,9 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 
 	type ReqValues struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email     string `json:"email"`
+		Password  string `json:"password"`
+		ExpiresIn int    `json:"expires_in_seconds"`
 	}
 
 	reqValues := ReqValues{}
@@ -225,11 +240,18 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if reqValues.ExpiresIn == 0 {
+		reqValues.ExpiresIn = 3600
+	}
+
+	tokenJWT, err := auth.MakeJWT(user.ID, cfg.tokenSecret, time.Duration(reqValues.ExpiresIn))
+
 	respondWithJSON(w, http.StatusOK, User{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt,
 		UdpatedAt: user.UpdatedAt,
 		Email:     user.Email,
+		Token:     tokenJWT,
 	})
 }
 
