@@ -217,9 +217,8 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 
 	type ReqValues struct {
-		Email     string `json:"email"`
-		Password  string `json:"password"`
-		ExpiresIn int    `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	reqValues := ReqValues{}
@@ -241,11 +240,7 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if reqValues.ExpiresIn == 0 {
-		reqValues.ExpiresIn = 3600
-	}
-
-	tokenJWT, err := auth.MakeJWT(user.ID, cfg.tokenSecret, time.Duration(reqValues.ExpiresIn))
+	tokenJWT, err := auth.MakeJWT(user.ID, cfg.tokenSecret, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error making JWT token", err)
 		return
