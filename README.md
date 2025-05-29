@@ -163,13 +163,43 @@ curl -X POST 'localhost:8080/api/users' -H 'Content-Type: application/json' -d '
 `POST` `/api/login`
 
 Logins user. Requires a JSON payload with `email` and `password`. Returns JSON
-with `id`, `created_at`, `updated_at`, `email`, `token`.
+with `id`, `created_at`, `updated_at`, `email`, `token`, `refresh_token`.
 
 `token` acts as your secret identifier when making requests to the API, so
 don't lose or share it.
 
+`refresh_token` acts as your token used to refresh your access `token`.
+
+Example usage:
+
 ```bash
 curl -X POST 'localhost:8080/api/login' -H 'Content-Type: application/json' -d '{"email": "john.pork@example.com", "password": "superidoldexiaorong"}'
+```
+
+### Refresh token
+
+`POST /api/refresh`
+
+Generates an access `token`. Requires a header with `refresh_token`.
+
+`refresh_token` acts as your token used to refresh your access `token`.
+
+Example usage:
+
+```bash
+curl -i -X POST 'localhost:8080/api/refresh' -H 'Authorization: Bearer c3648f4f00b852ca3c428621120449f3eaae9e2255020b351025a7a345f0766c'
+```
+
+### Revoke token
+
+`POST /api/revoke`
+
+Revokes your `refresh_token`. Requires a header with `refresh_token`.
+
+Example usage:
+
+```bash
+curl -i -X POST 'localhost:8080/api/revoke' -H 'Authorization: Bearer c3648f4f00b852ca3c428621120449f3eaae9e2255020b351025a7a345f0766c'
 ```
 
 ### Create post

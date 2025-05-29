@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -28,6 +30,7 @@ func CheckPasswordHash(password, hash string) error {
 	return nil
 }
 
+// TODO: remove expiresIn
 func MakeJWT(userId uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
 	expirationDate := &jwt.NumericDate{
 		Time: time.Now().Add(expiresIn * time.Second),
@@ -87,4 +90,13 @@ func BearerToken(headers http.Header) (string, error) {
 	}
 
 	return headerClean[1], nil
+}
+
+func MakeRefreshToken() (string, error) {
+	tokenRaw := make([]byte, 32)
+	_, err := rand.Read(tokenRaw)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(tokenRaw), nil
 }

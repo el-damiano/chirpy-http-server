@@ -155,12 +155,13 @@ func chirpValidate(bodyOriginal string) (string, error) {
 }
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UdpatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	Password  string    `json:"-"`
-	Token     string    `json:"token"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UdpatedAt    time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	Password     string    `json:"-"`
+	Token        string    `json:"token"`
+	TokenRefresh string    `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -245,14 +246,75 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenJWT, err := auth.MakeJWT(user.ID, cfg.tokenSecret, time.Duration(reqValues.ExpiresIn))
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error making JWT token", err)
+		return
+	}
+
+	tokenRefresh, err := auth.MakeRefreshToken()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error making refresh token", err)
+		return
+	}
+
+	tokenRefreshParams := database.CreateTokenParams{
+		Token:     tokenRefresh,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().AddDate(0, 0, 60),
+	}
+
+	_, err = cfg.dbQueries.CreateToken(context.Background(), tokenRefreshParams)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error creating refresh token", err)
+		return
+	}
 
 	respondWithJSON(w, http.StatusOK, User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UdpatedAt: user.UpdatedAt,
-		Email:     user.Email,
-		Token:     tokenJWT,
+		ID:           user.ID,
+		CreatedAt:    user.CreatedAt,
+		UdpatedAt:    user.UpdatedAt,
+		Email:        user.Email,
+		Token:        tokenJWT,
+		TokenRefresh: tokenRefresh,
 	})
+}
+
+func (cfg *apiConfig) tokenRefreshHandler(w http.ResponseWriter, r *http.Request) {
+	tokenBearer, err := auth.BearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Authorization failed: %v", err), err)
+		return
+	}
+
+	userId, err := cfg.dbQueries.GetUserFromRefreshToken(context.Background(), tokenBearer)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Authorization failed, token doesn't exist or is expired", err)
+		return
+	}
+
+	tokenJWT, err := auth.MakeJWT(userId, cfg.tokenSecret, time.Hour)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Authorization failed", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, struct {
+		Token string `json:"token"`
+	}{
+		Token: tokenJWT,
+	})
+}
+
+func (cfg *apiConfig) tokenRevokeHandler(w http.ResponseWriter, r *http.Request) {
+	tokenBearer, err := auth.BearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Authorization failed: %v", err), err)
+		return
+	}
+
+	cfg.dbQueries.RevokeRefreshToken(context.Background(), tokenBearer)
+
+	respondWithJSON(w, http.StatusNoContent, nil)
 }
 
 func (cfg *apiConfig) metricsMiddleware(next http.Handler) http.Handler {
