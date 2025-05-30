@@ -176,6 +176,20 @@ Example usage:
 curl -X POST 'localhost:8080/api/login' -H 'Content-Type: application/json' -d '{"email": "john.pork@example.com", "password": "superidoldexiaorong"}'
 ```
 
+### Update user information
+
+`PUT /api/users`
+
+Updates user information. Requires a JSON payload with the new `email` and
+`password` and a header with access `token`. Returns JSON with `id`,
+`created_at`, `updated_at`, `email`, `token`, `refresh_token`.
+
+Example usage:
+
+```bash
+curl -i -X PUT 'localhost:8080/api/users' -H 'Content-Type: application/json' -H 'Authorization: Bearer <your access token here>' -d '{"email": "john.porkski@example.com", "password": "californiagirlswereunforgettable"}'
+```
+
 ### Refresh token
 
 `POST /api/refresh`
