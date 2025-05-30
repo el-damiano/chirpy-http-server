@@ -200,6 +200,7 @@ type User struct {
 	Password     string    `json:"-"`
 	Token        string    `json:"token"`
 	TokenRefresh string    `json:"refresh_token"`
+	IsChirpyRed  bool      `json:"is_chirpy_red"`
 }
 
 func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -244,10 +245,11 @@ func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respondWithJSON(w, http.StatusCreated, User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UdpatedAt: user.UpdatedAt,
-		Email:     user.Email,
+		ID:          user.ID,
+		CreatedAt:   user.CreatedAt,
+		UdpatedAt:   user.UpdatedAt,
+		Email:       user.Email,
+		IsChirpyRed: user.IsChirpyRed,
 	})
 }
 
@@ -294,10 +296,11 @@ func (cfg *apiConfig) userUpdateHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respondWithJSON(w, http.StatusOK, User{
-		ID:        userDB.ID,
-		CreatedAt: userDB.CreatedAt,
-		UdpatedAt: userDB.UpdatedAt,
-		Email:     userDB.Email,
+		ID:          userDB.ID,
+		CreatedAt:   userDB.CreatedAt,
+		UdpatedAt:   userDB.UpdatedAt,
+		Email:       userDB.Email,
+		IsChirpyRed: userDB.IsChirpyRed,
 	})
 }
 
@@ -357,6 +360,7 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    user.CreatedAt,
 		UdpatedAt:    user.UpdatedAt,
 		Email:        user.Email,
+		IsChirpyRed:  user.IsChirpyRed,
 		Token:        tokenJWT,
 		TokenRefresh: tokenRefresh,
 	})
@@ -398,6 +402,35 @@ func (cfg *apiConfig) tokenRevokeHandler(w http.ResponseWriter, r *http.Request)
 	cfg.dbQueries.RevokeRefreshToken(context.Background(), tokenBearer)
 
 	respondWithJSON(w, http.StatusNoContent, nil)
+}
+
+func (cfg *apiConfig) polkaHandler(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID uuid.UUID `json:"user_id"`
+		} `json:"data"`
+	}
+	params := parameters{}
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request", err)
+		return
+	}
+
+	if params.Event != "user.upgraded" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	err = cfg.dbQueries.UpgradeUserMembership(context.Background(), params.Data.UserID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "User not found", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (cfg *apiConfig) metricsMiddleware(next http.Handler) http.Handler {

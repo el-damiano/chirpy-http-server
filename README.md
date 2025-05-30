@@ -259,6 +259,20 @@ Example usage:
 curl -i -X DELETE 'localhost:8080/api/chirps/94b0bc50-f66b-49a0-ace0-2029a7e79622' -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaGlycHkiLCJzdWIiOiJiODVkZGU1YS1iNDg1LTQ5MDItODg4Yi05NDYyMjlkYjhiMDIiLCJleHAiOjQ2MzM1MzYxODgsImlhdCI6MTc0ODYzMDU2MX0.wMExxrAzje8pWLKYNXldJGjjFCsNMhxdQA73uYWNSZ0'
 ```
 
+### Upgrade user membership
+
+`POST /api/polka/webhooks`
+
+Upgrades the membership status of a specific user. Requires a JSON payload with
+the key-value pair `event`-`user.upgraded` and `data` field containing a nested
+JSON payload with a `user_id` UUID field.
+
+Example usage:
+
+```bash
+curl -X POST 'localhost:8080/api/webhooks' -d '{"event": "user.upgraded", "data": {"user_id": "3311741c-680c-4546-99f3-fc9efac2036c"}}'
+```
+
 ### Page visits
 
 `GET` `/admin/metrics`

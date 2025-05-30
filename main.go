@@ -51,6 +51,8 @@ func main() {
 	serveMux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.chirpsHandler)
 	serveMux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.chirpsDeleteHandler)
 
+	serveMux.HandleFunc("POST /api/polka/webhooks", apiCfg.polkaHandler)
+
 	serveMux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
 	serveMux.HandleFunc("POST /admin/reset", apiCfg.metricsResetHandler)
 
