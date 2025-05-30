@@ -49,6 +49,7 @@ func main() {
 	serveMux.HandleFunc("POST /api/chirps", apiCfg.chirpCreateHandler)
 	serveMux.HandleFunc("GET /api/chirps", apiCfg.chirpsHandler)
 	serveMux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.chirpsHandler)
+	serveMux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.chirpsDeleteHandler)
 
 	serveMux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
 	serveMux.HandleFunc("POST /admin/reset", apiCfg.metricsResetHandler)

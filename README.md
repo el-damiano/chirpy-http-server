@@ -246,6 +246,19 @@ Example usage:
  curl -X GET 'localhost:8080/api/chirps/bdc22c7e-6cc5-424c-a07f-575b5a2d4b1b'
 ```
 
+### Delete a post of specific UUID
+
+`DELETE` `/api/chirps/{chirpID}`
+
+Deletes a specific post. Requires a `{chirpID}` UUID parameter and an access
+`token` Authorization Header.
+
+Example usage:
+
+```bash
+curl -i -X DELETE 'localhost:8080/api/chirps/94b0bc50-f66b-49a0-ace0-2029a7e79622' -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaGlycHkiLCJzdWIiOiJiODVkZGU1YS1iNDg1LTQ5MDItODg4Yi05NDYyMjlkYjhiMDIiLCJleHAiOjQ2MzM1MzYxODgsImlhdCI6MTc0ODYzMDU2MX0.wMExxrAzje8pWLKYNXldJGjjFCsNMhxdQA73uYWNSZ0'
+```
+
 ### Page visits
 
 `GET` `/admin/metrics`
