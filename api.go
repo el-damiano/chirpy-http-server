@@ -213,6 +213,56 @@ func (cfg *apiConfig) userCreateHandler(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+func (cfg *apiConfig) userUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	tokenBearer, err := auth.BearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Authorization failed: %v", err), err)
+		return
+	}
+	userID, err := auth.ValidateJWT(tokenBearer, cfg.tokenSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Authorization failed: invalid/expired JWT", err)
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	type UpdateRequest struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	updateRequest := UpdateRequest{}
+	err = decoder.Decode(&updateRequest)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request", err)
+		return
+	}
+
+	passwordHashed, err := auth.HashPassword(updateRequest.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error hashing password", err)
+		return
+	}
+
+	userUpdateParams := database.UpdateUserParams{
+		Email:          updateRequest.Email,
+		HashedPassword: passwordHashed,
+		ID:             userID,
+	}
+	userDB, err := cfg.dbQueries.UpdateUser(context.Background(), userUpdateParams)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error updating user", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, User{
+		ID:        userDB.ID,
+		CreatedAt: userDB.CreatedAt,
+		UdpatedAt: userDB.UpdatedAt,
+		Email:     userDB.Email,
+	})
+}
+
 func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 

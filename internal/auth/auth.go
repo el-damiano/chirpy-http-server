@@ -30,7 +30,6 @@ func CheckPasswordHash(password, hash string) error {
 	return nil
 }
 
-// TODO: remove expiresIn
 func MakeJWT(userId uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
 	expirationDate := &jwt.NumericDate{
 		Time: time.Now().Add(expiresIn * time.Second),

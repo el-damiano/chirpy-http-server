@@ -41,6 +41,7 @@ func main() {
 	serveMux.HandleFunc("GET /api/healthz", readyHandler)
 
 	serveMux.HandleFunc("POST /api/users", apiCfg.userCreateHandler)
+	serveMux.HandleFunc("PUT /api/users", apiCfg.userUpdateHandler)
 	serveMux.HandleFunc("POST /api/login", apiCfg.userLoginHandler)
 	serveMux.HandleFunc("POST /api/refresh", apiCfg.tokenRefreshHandler)
 	serveMux.HandleFunc("POST /api/revoke", apiCfg.tokenRevokeHandler)
