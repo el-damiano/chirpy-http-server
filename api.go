@@ -91,7 +91,8 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 
 	authorIDString := r.URL.Query().Get("author_id")
 	if authorIDString != "" {
-		authorID, err := uuid.Parse(authorIDString)
+		var authorID uuid.UUID
+		authorID, err = uuid.Parse(authorIDString)
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, "Invalid author_id", err)
 			return
@@ -101,16 +102,16 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 		chirps, err = cfg.dbQueries.GetAllChirps(context.Background())
 	}
 
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error retrieving all the chirps", err)
+		return
+	}
+
 	sortOrder := r.URL.Query().Get("sort") // by default chirps are sorted by asc
 	if sortOrder == "desc" {
 		sort.Slice(chirps, func(i, j int) bool {
 			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
 		})
-	}
-
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error retrieving all the chirps", err)
-		return
 	}
 
 	var chirpsResponse []Chirp
@@ -422,7 +423,11 @@ func (cfg *apiConfig) tokenRevokeHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	cfg.dbQueries.RevokeRefreshToken(context.Background(), tokenBearer)
+	err = cfg.dbQueries.RevokeRefreshToken(context.Background(), tokenBearer)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Token revokation failed", err)
+		return
+	}
 
 	respondWithJSON(w, http.StatusNoContent, nil)
 }
@@ -479,12 +484,16 @@ func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
 	_ = r
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<html>
+	_, err := fmt.Fprintf(w, `<html>
   <body>
     <h1>Welcome, Chirpy Admin</h1>
     <p>Chirpy has been visited %d times!</p>
   </body>
 </html>`, cfg.fileserverHits.Load())
+	if err != nil {
+		log.Printf("Error writing message: %s", err)
+		return
+	}
 }
 
 func (cfg *apiConfig) metricsResetHandler(w http.ResponseWriter, r *http.Request) {
@@ -504,8 +513,11 @@ func (cfg *apiConfig) metricsResetHandler(w http.ResponseWriter, r *http.Request
 
 	cfg.fileserverHits.Store(0)
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, "Fileserver hits reset and users deleted")
-
+	_, err = fmt.Fprintln(w, "Fileserver hits reset and users deleted")
+	if err != nil {
+		log.Printf("Error writing message: %s", err)
+		return
+	}
 }
 
 func readyHandler(w http.ResponseWriter, r *http.Request) {
