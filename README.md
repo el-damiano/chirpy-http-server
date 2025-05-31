@@ -263,14 +263,16 @@ curl -i -X DELETE 'localhost:8080/api/chirps/94b0bc50-f66b-49a0-ace0-2029a7e7962
 
 `POST /api/polka/webhooks`
 
-Upgrades the membership status of a specific user. Requires a JSON payload with
-the key-value pair `event`-`user.upgraded` and `data` field containing a nested
-JSON payload with a `user_id` UUID field.
+Upgrades the membership status of a specific user. Requires
+
+- an Authorization header with an `ApiKey`
+- a JSON payload with the key-value pair `event`-`user.upgraded` and `data`
+field containing a nested JSON payload with a `user_id` UUID field.
 
 Example usage:
 
 ```bash
-curl -X POST 'localhost:8080/api/webhooks' -d '{"event": "user.upgraded", "data": {"user_id": "3311741c-680c-4546-99f3-fc9efac2036c"}}'
+curl -X POST 'localhost:8080/api/webhooks' -H 'Authorization: ApiKey f271c81ff7084ee5b99a5091b42d486e' -d '{"event": "user.upgraded", "data": {"user_id": "3311741c-680c-4546-99f3-fc9efac2036c"}}'
 ```
 
 ### Page visits

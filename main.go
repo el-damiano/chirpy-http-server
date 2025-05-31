@@ -20,6 +20,7 @@ func main() {
 	dbURL := os.Getenv("DB_URL")
 	tokenSecret := os.Getenv("SECRET")
 	platform := os.Getenv("PLATFORM")
+	polkaKey := os.Getenv("POLKA_KEY")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("Error opening database: %s", err)
@@ -31,6 +32,7 @@ func main() {
 		dbQueries:   database.New(db),
 		platform:    platform,
 		tokenSecret: tokenSecret,
+		polkaKey:    polkaKey,
 	}
 	dir := http.Dir(filePath)
 

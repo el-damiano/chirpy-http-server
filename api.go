@@ -19,6 +19,7 @@ import (
 type apiConfig struct {
 	platform       string
 	tokenSecret    string
+	polkaKey       string
 	dbQueries      *database.Queries
 	fileserverHits atomic.Int32
 }
@@ -411,9 +412,21 @@ func (cfg *apiConfig) polkaHandler(w http.ResponseWriter, r *http.Request) {
 			UserID uuid.UUID `json:"user_id"`
 		} `json:"data"`
 	}
+
+	apiKey, err := auth.APIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Authorization failed: %v", err), err)
+		return
+	}
+
+	if apiKey != cfg.polkaKey {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	params := parameters{}
 	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error decoding request", err)
 		return
