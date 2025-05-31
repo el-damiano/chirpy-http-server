@@ -232,7 +232,15 @@ curl -X POST 'localhost:8080/api/chirps' -H 'Content-Type: application/json' -H 
 
 `GET` `/api/chirps`
 
-Retrieves all posts.
+Retrieves all posts. Accepts an optional `author_id` query parameter to limit
+the chirps to the specific author.
+
+Example usages:
+
+```bash
+curl -X GET 'localhost:8080/api/chirps'
+curl -X GET 'localhost:8080/api/chirps?author_id=77f5b07e-e943-4359-9849-feb1d4194c28'
+```
 
 ### Retrieve post of specific UUID
 
