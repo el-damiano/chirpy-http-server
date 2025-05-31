@@ -233,7 +233,8 @@ curl -X POST 'localhost:8080/api/chirps' -H 'Content-Type: application/json' -H 
 `GET` `/api/chirps`
 
 Retrieves all posts. Accepts an optional `author_id` query parameter to limit
-the chirps to the specific author.
+the chirps to the specific author and an optional `sort` query parameter of
+either `asc` or `desc`
 
 Example usages:
 

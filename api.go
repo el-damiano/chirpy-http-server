@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -98,6 +99,13 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 		chirps, err = cfg.dbQueries.GetUsersChirps(context.Background(), authorID)
 	} else {
 		chirps, err = cfg.dbQueries.GetAllChirps(context.Background())
+	}
+
+	sortOrder := r.URL.Query().Get("sort") // by default chirps are sorted by asc
+	if sortOrder == "desc" {
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+		})
 	}
 
 	if err != nil {
