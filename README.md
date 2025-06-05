@@ -81,6 +81,14 @@ DB_URL="postgres://{username}:{password}@localhost:5432/chirpy?sslmode=disable"
 **NOTE**: `{username}` and `{password}` are not filled because it's something
 you have to set up.
 
+Other required env variables:
+
+```text
+SECRET="<base64 key here>"
+PLATFORM="dev"
+POLKA_KEY="<api required for the `webhooks` endpoint>"
+```
+
 After all that just run it with `bootdev-http-server`. The URL will be
 `localhost:8080`.
 
