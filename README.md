@@ -94,7 +94,8 @@ After all that just run it with `bootdev-http-server`. The URL will be
 
 ## How to make a request
 
-All endpoints are accessible without any authentication nor authorization.
+Some endpoints require a secret identifier `token` to make API requests,
+so don't lose or share it.
 
 Requests contain the following elements:
 - **Base URL**: in this case `localhost:8080`
