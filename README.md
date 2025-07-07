@@ -1,4 +1,4 @@
-# Basic HTTP Server - Chirpy
+# Chirpy
 
 Minimalistic HTTP web server written in Go with a production ready JSON API,
 basic data storage, authentication with JWT, authorization and webhooks.
